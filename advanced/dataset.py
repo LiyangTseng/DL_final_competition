@@ -67,22 +67,6 @@ class TextTransform:
             string.append(self.index_map[i])
         return ''.join(string).replace('<SPACE>', ' ')
 
-def GreedyDecoder(output, labels, label_lengths, blank_label=28, collapse_repeated=True):
-	arg_maxes = torch.argmax(output, dim=2)
-	decodes = []
-	targets = []
-	for i, args in enumerate(arg_maxes):
-		decode = []
-		targets.append(text_transform.int_to_text(labels[i][:label_lengths[i]].tolist()))
-		for j, index in enumerate(args):
-			if index != blank_label:
-				if collapse_repeated and j != 0 and index == args[j -1]:
-					continue
-				decode.append(index.item())
-		decodes.append(text_transform.int_to_text(decode))
-	return decodes, targets
-
-
 text_transform = TextTransform()
 
 
@@ -99,11 +83,13 @@ def data_processing(data, data_type="train"):
     labels = []
     input_lengths = []
     label_lengths = []
-    for (waveform, utterance) in data:
+    for (melspec, utterance) in data:
         if data_type == 'train':
-            spec = train_audio_transforms(waveform).squeeze(0).transpose(0, 1)
+            # spec = train_audio_transforms(waveform).squeeze(0).transpose(0, 1)
+            spec = melspec.squeeze(0).transpose(0, 1)
         elif data_type == 'valid':
-            spec = valid_audio_transforms(waveform).squeeze(0).transpose(0, 1)
+            # spec = valid_audio_transforms(waveform).squeeze(0).transpose(0, 1)
+            spec = melspec.squeeze(0).transpose(0, 1)
         else:
             raise Exception('data_type should be train or valid')
         spectrograms.append(spec)
@@ -138,13 +124,13 @@ class Audio_Dataset(Dataset):
     def __getitem__(self, index):
         # audio_filename = os.path.join('../Data/train', '{0:06}.wav'.format(self.data_df.iloc[index]['file']))
         # audio, _ = torchaudio.load(audio_filename)
-        audio = torch.load('Features/train/{:06}.pt'.format(index))
+        melspec = torch.load('Features/train/{:06}.pt'.format(self.data_df.iloc[index]['file']))
         label = self.data_df.iloc[index]['sentence']
         label = re.sub(r'[,:;\.\(\)-/"<>@_]', ' ', label)
         label = re.sub(r'[0-9]', ' ', label)
 
         
-        return torch.tensor(audio), label
+        return torch.tensor(melspec), label
 
 if __name__ == '__main__':
     use_cuda = torch.cuda.is_available()
